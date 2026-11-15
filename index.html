@@ -152,6 +152,7 @@ details.sec[open]>summary::after{content:"–"}
 .prow .optrow input{width:76px}
 .prow .acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
 .sm{border:1px solid var(--rule);border-radius:6px;padding:6px 11px;font-size:13px}
+.sm:disabled{opacity:.3}
 .sm.warn{border-color:#c0503e;color:#c0503e}
 .addrow{border:1px dashed var(--faint);color:var(--soft);border-radius:8px;padding:9px 12px;width:100%}
 .save{border-radius:8px;padding:10px 16px;font-weight:500;background:var(--navy);color:var(--on-navy)}
@@ -308,7 +309,7 @@ function drawPanel(status,cls){
         if(it.o&&it.o.length){h+='<span></span><div class="optrow">'+it.o.map((o,oi)=>'<label>'+esc(o[0])+' $<input id="o-'+id+'-'+oi+'" data-f="o" data-oi="'+oi+'" data-i="'+id+'" value="'+esc(o[1])+'" inputmode="decimal"></label>').join("")+'</div>'}
         else h+='<div class="pp">$<input id="p-'+id+'" data-f="p" data-i="'+id+'" value="'+esc(it.p??"")+'" inputmode="decimal" placeholder="—" aria-label="Precio"></div>';
         h+='<textarea id="d-'+id+'" data-f="d" data-i="'+id+'" rows="2" placeholder="Descripción" aria-label="Descripción">'+esc(it.d||"")+'</textarea>';
-        h+='<div class="acts"><button class="sm" data-act="hide" data-i="'+id+'">'+(it.x?'Mostrar en el menú':'Agotado / ocultar')+'</button><button class="sm warn" data-act="del" data-i="'+id+'">'+(delArm===id?'Toca otra vez para borrar':'Borrar')+'</button></div></div>';
+        h+='<div class="acts"><button class="sm" data-act="top" data-i="'+id+'"'+(ii===0?' disabled':'')+'>Poner primero</button><button class="sm" data-act="up" data-i="'+id+'"'+(ii===0?' disabled':'')+' aria-label="Subir">↑</button><button class="sm" data-act="down" data-i="'+id+'"'+(ii===c.items.length-1?' disabled':'')+' aria-label="Bajar">↓</button><button class="sm" data-act="hide" data-i="'+id+'">'+(it.x?'Mostrar en el menú':'Agotado / ocultar')+'</button><button class="sm warn" data-act="del" data-i="'+id+'">'+(delArm===id?'Toca otra vez para borrar':'Borrar')+'</button></div></div>';
       });
       h+='<button class="addrow" data-act="new" data-i="'+si+'-'+ci+'">+ Agregar en '+esc(c.name)+'</button></div>';
     });
@@ -351,6 +352,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="p-out"){await sb.auth.signOut();session=null;canEdit=false;const a=$("#adm");if(a)a.hidden=true;closePanel();return}
   if(t.id==="p-save"){publish();return}
   const act=t.dataset.act,id=t.dataset.i;
+  if(act==="top"||act==="up"||act==="down"){const r=at(id),a=r.cat.items,i=r.i,j=act==="top"?0:act==="up"?i-1:i+1;if(j<0||j>=a.length||j===i)return;const [it]=a.splice(i,1);a.splice(j,0,it);delArm=null;mark();drawPanel();return}
   if(act==="hide"){const r=at(id);if(r.it.x)delete r.it.x;else r.it.x=true;mark();drawPanel();return}
   if(act==="del"){if(delArm!==id){delArm=id;drawPanel();return}const r=at(id);r.cat.items.splice(r.i,1);delArm=null;mark();drawPanel();return}
   if(act==="new"){const [a,b]=id.split("-").map(Number);const arr=E.sections[a].cats[b].items;arr.push({n:"Nuevo plato",d:"",p:null});mark();drawPanel();const inp=document.getElementById("n-"+a+"-"+b+"-"+(arr.length-1));if(inp){inp.focus();inp.select()}return}
