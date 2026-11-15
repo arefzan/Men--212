@@ -129,7 +129,7 @@ footer p{margin:0;font-size:13.5px;opacity:.72}
 .foto label{cursor:pointer;text-align:center}
 .foto input{display:none}
 .qrbox{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
-.qrbox canvas{width:180px;height:180px;max-width:100%;background:#fff;border-radius:10px;padding:8px}
+.qrbox img{width:220px;max-width:100%;aspect-ratio:3/4;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.15);background:#fff}
 .qrbox .acts{display:flex;flex-direction:column;gap:8px;min-width:0}
 .qrbox code{word-break:break-all;font-size:13px}
 .duo{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}.duo b{font-size:20px}
@@ -296,7 +296,7 @@ function drawPanel(status,cls){
   const open=new Set([...document.querySelectorAll("details.sec[open]")].map(d=>d.dataset.s));
   const y=$(".panel")?.scrollTop||0;
   let h='<div class="panel" role="dialog" aria-label="Panel"><div class="p-head"><div class="wrap"><h2>Panel 212</h2><button class="sm" id="p-close">Cerrar</button><button class="sm" id="p-out">Salir</button><button class="save" id="p-save"'+(dirty&&!saving?'':' disabled')+'>'+(saving?'Publicando…':'Guardar y publicar')+'</button><div class="status '+(cls||"")+'">'+esc(status||(dirty?"Tienes cambios sin publicar.":"Edita precios, nombres y descripciones. Los clientes ven los cambios al publicar."))+'</div></div></div><div class="wrap p-body">';
-  h+='<div class="card"><h3>QR y link para clientes</h3><div class="qrbox"><canvas id="qrc" width="360" height="360"></canvas><div class="acts"><span class="status">Este QR es fijo, no cambia nunca. Puedes imprimirlo.</span><button class="save" id="qr-dl">Descargar QR</button><span class="status">Link para enviar por WhatsApp o Instagram:</span><code>'+MENU_URL+'</code><button class="sm" id="qr-cp">Copiar link</button></div></div></div>';
+  h+='<div class="card"><h3>QR y link para clientes</h3><div class="qrbox"><img id="qrc" alt="QR del menú"><div class="acts"><span class="status">Este QR es fijo, no cambia nunca. Descárgalo para imprimir y pegar en las mesas.</span><button class="save" id="qr-dl">Descargar QR</button><span class="status">Link para enviar por WhatsApp o Instagram:</span><code>'+MENU_URL+'</code><button class="sm" id="qr-cp">Copiar link</button></div></div></div>';
   h+='<div class="card" id="stats">'+statsHtml+'</div>';
   h+='<div class="card"><h3>Fotos</h3><div class="fotos">'+FOTOS.map(([k,l])=>{const u=(E.photos&&E.photos[k])||BASE[k]||'';return '<div class="foto"><div class="th'+(k==='logo'?' lg':'')+'"'+(u?' style="background-image:url('+u+')"':'')+'></div><span>'+l+'</span><label class="sm">'+(upKey===k?'Subiendo…':'Cambiar foto')+'<input type="file" accept="image/*" data-photo="'+k+'"></label></div>'}).join('')+'</div></div>';h+='<div class="card"><h3>Datos del local</h3><label class="field">WhatsApp de reservas (con código de país)<input id="e-wa" value="'+esc(E.wa)+'" inputmode="tel"></label><label class="field">Instagram (sin @)<input id="e-ig" value="'+esc(E.ig)+'"></label><label class="field">Nota al pie<input id="e-note" value="'+esc(E.note)+'"></label></div>';
   E.sections.forEach((s,si)=>{
@@ -378,19 +378,35 @@ async function isAdmin(){
   const {data}=await sb.from("admins").select("id").eq("id",session.user.id).maybeSingle();
   return !!data;
 }
-function drawQR(){
-  const c=document.getElementById("qrc");if(!c||!window.qrcode)return;
-  const q=qrcode(0,"M");q.addData(QR_URL);q.make();
-  const n=q.getModuleCount(),m=4,s=Math.floor(c.width/(n+m*2)),off=Math.floor((c.width-s*n)/2),x=c.getContext("2d");
-  x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.fillStyle="#000";
-  for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect(off+k*s,off+r*s,s,s);
+function loadImg(src){return new Promise(ok=>{if(!src)return ok(null);const i=new Image();i.crossOrigin="anonymous";i.onload=()=>ok(i);i.onerror=()=>ok(null);i.src=src})}
+async function makeCard(W){
+  if(!window.qrcode)return null;
+  const H=Math.round(W*4/3),u=W/1200,c=document.createElement("canvas");c.width=W;c.height=H;
+  const x=c.getContext("2d");
+  try{await document.fonts.ready}catch(e){}
+  x.fillStyle="#fff";x.fillRect(0,0,W,H);
+  x.strokeStyle="#111";x.lineWidth=4*u;
+  const r=40*u,m=50*u;x.beginPath();if(x.roundRect)x.roundRect(m,m,W-2*m,H-2*m,r);else x.rect(m,m,W-2*m,H-2*m);x.stroke();
+  x.textAlign="center";x.fillStyle="#111";
+  const logo=await loadImg(IMG.logo);let y=150*u;
+  if(logo){const lh=230*u,lw=Math.min(logo.width*lh/logo.height,W-300*u);x.drawImage(logo,(W-lw)/2,y,lw,lh);y+=lh+70*u}
+  else{x.font="600 "+(140*u)+"px 'Cormorant Garamond',Georgia,serif";x.fillText("212",W/2,y+130*u);y+=200*u}
+  x.font="500 "+(64*u)+"px 'Cormorant Garamond',Georgia,serif";x.fillText("Nuestro menú",W/2,y+40*u);y+=100*u;
+  const q=qrcode(0,"H");q.addData(QR_URL);q.make();
+  const n=q.getModuleCount(),size=640*u,s=size/n,ox=(W-size)/2,oy=y;
+  x.fillStyle="#111";
+  for(let rr=0;rr<n;rr++)for(let k=0;k<n;k++)if(q.isDark(rr,k))x.fillRect(Math.floor(ox+k*s),Math.floor(oy+rr*s),Math.ceil(s),Math.ceil(s));
+  y=oy+size+90*u;
+  x.font="400 "+(40*u)+"px Jost,Helvetica,Arial,sans-serif";x.fillText("Escanea con la cámara de tu teléfono",W/2,y);
+  x.font="400 "+(30*u)+"px Jost,Helvetica,Arial,sans-serif";x.fillStyle="#666";x.fillText(MENU_URL.replace("https://",""),W/2,y+60*u);
+  return c;
 }
-function downloadQR(){
-  if(!window.qrcode)return;
-  const q=qrcode(0,"M");q.addData(QR_URL);q.make();
-  const n=q.getModuleCount(),s=20,m=4,c=document.createElement("canvas");c.width=c.height=(n+m*2)*s;
-  const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.fillStyle="#000";
-  for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect((k+m)*s,(r+m)*s,s,s);
+async function drawQR(){
+  const box=document.getElementById("qrc");if(!box)return;
+  const c=await makeCard(600);if(c)box.src=c.toDataURL("image/png");
+}
+async function downloadQR(){
+  const c=await makeCard(2400);if(!c)return;
   const a=document.createElement("a");a.download="QR-menu-212.png";a.href=c.toDataURL("image/png");document.body.appendChild(a);a.click();a.remove();
 }
 async function publish(){
