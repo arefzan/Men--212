@@ -87,6 +87,9 @@ main{min-height:70vh;padding-bottom:20px}
 .cat{scroll-margin-top:calc(118px + env(safe-area-inset-top,0px));padding-top:42px}
 .cat h3{margin:0;font-family:var(--serif);font-weight:600;font-size:clamp(28px,7vw,34px);line-height:1.05;text-wrap:balance}
 .cat .note{margin:6px 0 0;color:var(--soft);font-size:14px;font-style:normal}
+.tag{font-style:normal;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--bronze);border:1px solid var(--bronze);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:2px;white-space:nowrap}
+.tops{background:var(--chip);border-radius:16px;padding:22px 18px 6px;margin-top:28px}
+.tops .it{border-color:transparent}
 .cat .rule{display:block;width:34px;height:2px;background:var(--bronze);margin:12px 0 4px}
 .it{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 18px;padding:16px 0;border-bottom:1px solid var(--rule)}
 .it:last-child{border-bottom:0}
@@ -153,6 +156,7 @@ details.sec[open]>summary::after{content:"–"}
 .prow .acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
 .sm{border:1px solid var(--rule);border-radius:6px;padding:6px 11px;font-size:13px}
 .sm:disabled{opacity:.3}
+.sm.on{border-color:var(--bronze);color:var(--bronze)}
 .sm.warn{border-color:#c0503e;color:#c0503e}
 .addrow{border:1px dashed var(--faint);color:var(--soft);border-radius:8px;padding:9px 12px;width:100%}
 .save{border-radius:8px;padding:10px 16px;font-weight:500;background:var(--navy);color:var(--on-navy)}
@@ -222,7 +226,7 @@ function drawBar(){
 function mk(text,nq){if(!nq)return esc(text);const i=norm(text).indexOf(nq);if(i<0)return esc(text);return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+nq.length))+'</mark>'+esc(text.slice(i+nq.length))}
 function itemHtml(it,nq){
   const o=it.o&&it.o.length;
-  return '<div class="it"><span class="nm">'+mk(it.n,nq)+'</span><span class="pr">'+(!o&&it.p!=null?money(it.p):'')+'</span>'+
+  return '<div class="it"><span class="nm">'+mk(it.n,nq)+(it.top?' <em class="tag">Más pedido</em>':'')+'</span><span class="pr">'+(!o&&it.p!=null?money(it.p):'')+'</span>'+
     (it.d?'<span class="ds">'+mk(it.d,nq)+'</span>':'')+
     (o?'<span class="opts">'+it.o.map(x=>'<span>'+esc(x[0])+'<b>'+money(x[1])+'</b></span>').join("")+'</span>':'')+'</div>';
 }
@@ -242,6 +246,8 @@ function render(){
     h='<p class="empty">Escribe un plato, un trago o un ingrediente.</p>';
   }else{
     const s=D.sections.find(x=>x.id===cur),si=D.sections.indexOf(s);let lastG=null;
+    const tops=[];s.cats.forEach(c=>visible(c).forEach(i=>{if(i.top)tops.push(i)}));
+    if(tops.length)h+='<section class="cat tops"><h3>Lo más pedido de la semana</h3><span class="rule"></span>'+tops.map(i=>itemHtml(Object.assign({},i,{top:false}))).join("")+'</section>';
     s.cats.forEach((c,ci)=>{const its=visible(c);if(!its.length)return;
       if(c.g&&c.g!==lastG)h+='<div class="group caps">'+esc(c.g)+'</div>';lastG=c.g||null;
       h+=catHtml(c,catId(si,ci),null,its)});
@@ -297,6 +303,8 @@ function drawPanel(status,cls){
   const y=$(".panel")?.scrollTop||0;
   let h='<div class="panel" role="dialog" aria-label="Panel"><div class="p-head"><div class="wrap"><h2>Panel 212</h2><button class="sm" id="p-close">Cerrar</button><button class="sm" id="p-out">Salir</button><button class="save" id="p-save"'+(dirty&&!saving?'':' disabled')+'>'+(saving?'Publicando…':'Guardar y publicar')+'</button><div class="status '+(cls||"")+'">'+esc(status||(dirty?"Tienes cambios sin publicar.":"Edita precios, nombres y descripciones. Los clientes ven los cambios al publicar."))+'</div></div></div><div class="wrap p-body">';
   h+='<div class="card"><h3>QR y link para clientes</h3><div class="qrbox"><img id="qrc" alt="QR del menú"><div class="acts"><span class="status">Este QR es fijo, no cambia nunca. Descárgalo y pégalo donde quieras.</span><button class="save" id="qr-dl">Descargar QR</button><span class="status">Link para enviar por WhatsApp o Instagram:</span><code>'+MENU_URL+'</code><button class="sm" id="qr-cp">Copiar link</button></div></div></div>';
+  {const n=E.sections.reduce((a,x)=>a+x.cats.reduce((b,c)=>b+c.items.filter(i=>i.top).length,0),0);const old=E.topDate&&(Date.now()-new Date(E.topDate))>7*864e5;
+   h+='<div class="card"><h3>Lo más pedido de la semana</h3><p class="status">'+(n?n+' platos marcados'+(E.topDate?' · actualizado el '+E.topDate.split('-').reverse().join('/'):''):'Ningún plato marcado. Toca ☆ Más pedido en los platos que más vendiste esta semana.')+'</p>'+(old?'<p class="status err">Ya pasó una semana. Revisa la caja y actualiza los más pedidos.</p>':'')+'</div>'}
   h+='<div class="card" id="stats">'+statsHtml+'</div>';
   h+='<div class="card"><h3>Fotos</h3><div class="fotos">'+FOTOS.map(([k,l])=>{const u=(E.photos&&E.photos[k])||BASE[k]||'';return '<div class="foto"><div class="th'+(k==='logo'?' lg':'')+'"'+(u?' style="background-image:url('+u+')"':'')+'></div><span>'+l+'</span><label class="sm">'+(upKey===k?'Subiendo…':'Cambiar foto')+'<input type="file" accept="image/*" data-photo="'+k+'"></label></div>'}).join('')+'</div></div>';h+='<div class="card"><h3>Datos del local</h3><label class="field">WhatsApp de reservas (con código de país)<input id="e-wa" value="'+esc(E.wa)+'" inputmode="tel"></label><label class="field">Instagram (sin @)<input id="e-ig" value="'+esc(E.ig)+'"></label><label class="field">Nota al pie<input id="e-note" value="'+esc(E.note)+'"></label></div>';
   E.sections.forEach((s,si)=>{
@@ -309,7 +317,7 @@ function drawPanel(status,cls){
         if(it.o&&it.o.length){h+='<span></span><div class="optrow">'+it.o.map((o,oi)=>'<label>'+esc(o[0])+' $<input id="o-'+id+'-'+oi+'" data-f="o" data-oi="'+oi+'" data-i="'+id+'" value="'+esc(o[1])+'" inputmode="decimal"></label>').join("")+'</div>'}
         else h+='<div class="pp">$<input id="p-'+id+'" data-f="p" data-i="'+id+'" value="'+esc(it.p??"")+'" inputmode="decimal" placeholder="—" aria-label="Precio"></div>';
         h+='<textarea id="d-'+id+'" data-f="d" data-i="'+id+'" rows="2" placeholder="Descripción" aria-label="Descripción">'+esc(it.d||"")+'</textarea>';
-        h+='<div class="acts"><button class="sm" data-act="top" data-i="'+id+'"'+(ii===0?' disabled':'')+'>Poner primero</button><button class="sm" data-act="up" data-i="'+id+'"'+(ii===0?' disabled':'')+' aria-label="Subir">↑</button><button class="sm" data-act="down" data-i="'+id+'"'+(ii===c.items.length-1?' disabled':'')+' aria-label="Bajar">↓</button><button class="sm" data-act="hide" data-i="'+id+'">'+(it.x?'Mostrar en el menú':'Agotado / ocultar')+'</button><button class="sm warn" data-act="del" data-i="'+id+'">'+(delArm===id?'Toca otra vez para borrar':'Borrar')+'</button></div></div>';
+        h+='<div class="acts"><button class="sm" data-act="top" data-i="'+id+'"'+(ii===0?' disabled':'')+'>Poner primero</button><button class="sm" data-act="up" data-i="'+id+'"'+(ii===0?' disabled':'')+' aria-label="Subir">↑</button><button class="sm" data-act="down" data-i="'+id+'"'+(ii===c.items.length-1?' disabled':'')+' aria-label="Bajar">↓</button><button class="sm'+(it.top?' on':'')+'" data-act="top1" data-i="'+id+'">'+(it.top?'★ Más pedido':'☆ Más pedido')+'</button><button class="sm" data-act="hide" data-i="'+id+'">'+(it.x?'Mostrar en el menú':'Agotado / ocultar')+'</button><button class="sm warn" data-act="del" data-i="'+id+'">'+(delArm===id?'Toca otra vez para borrar':'Borrar')+'</button></div></div>';
       });
       h+='<button class="addrow" data-act="new" data-i="'+si+'-'+ci+'">+ Agregar en '+esc(c.name)+'</button></div>';
     });
@@ -353,6 +361,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="p-save"){publish();return}
   const act=t.dataset.act,id=t.dataset.i;
   if(act==="top"||act==="up"||act==="down"){const r=at(id),a=r.cat.items,i=r.i,j=act==="top"?0:act==="up"?i-1:i+1;if(j<0||j>=a.length||j===i)return;const [it]=a.splice(i,1);a.splice(j,0,it);delArm=null;mark();drawPanel();return}
+  if(act==="top1"){const r=at(id);if(r.it.top)delete r.it.top;else r.it.top=true;E.topDate=new Date().toISOString().slice(0,10);mark();drawPanel();return}
   if(act==="hide"){const r=at(id);if(r.it.x)delete r.it.x;else r.it.x=true;mark();drawPanel();return}
   if(act==="del"){if(delArm!==id){delArm=id;drawPanel();return}const r=at(id);r.cat.items.splice(r.i,1);delArm=null;mark();drawPanel();return}
   if(act==="new"){const [a,b]=id.split("-").map(Number);const arr=E.sections[a].cats[b].items;arr.push({n:"Nuevo plato",d:"",p:null});mark();drawPanel();const inp=document.getElementById("n-"+a+"-"+b+"-"+(arr.length-1));if(inp){inp.focus();inp.select()}return}
