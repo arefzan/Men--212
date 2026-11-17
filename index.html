@@ -156,6 +156,7 @@ details.sec[open]>summary::after{content:"–"}
 .prow .acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
 .sm{border:1px solid var(--rule);border-radius:6px;padding:6px 11px;font-size:13px}
 .sm:disabled{opacity:.3}
+.chead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.chead h4{margin:0}
 .sm.on{border-color:var(--bronze);color:var(--bronze)}
 .sm.warn{border-color:#c0503e;color:#c0503e}
 .addrow{border:1px dashed var(--faint);color:var(--soft);border-radius:8px;padding:9px 12px;width:100%}
@@ -309,7 +310,7 @@ function drawPanel(status,cls){
   E.sections.forEach((s,si)=>{
     h+='<details class="sec" data-s="'+si+'"'+(open.has(String(si))?' open':'')+'><summary>'+esc(s.name)+'</summary>';
     s.cats.forEach((c,ci)=>{
-      h+='<div class="pcat"><h4 class="caps">'+esc(c.name)+'</h4><label class="field">Nota de la categoría (opcional)<input data-cn="'+si+'-'+ci+'" value="'+esc(c.note||"")+'"></label>';
+      h+='<div class="pcat"><div class="chead"><h4 class="caps">'+esc(c.name)+'</h4><div class="acts"><button class="sm" data-act="ctop" data-i="'+si+'-'+ci+'"'+(ci===0?' disabled':'')+'>Poner primero</button><button class="sm" data-act="cup" data-i="'+si+'-'+ci+'"'+(ci===0?' disabled':'')+' aria-label="Subir categoría">↑</button><button class="sm" data-act="cdown" data-i="'+si+'-'+ci+'"'+(ci===s.cats.length-1?' disabled':'')+' aria-label="Bajar categoría">↓</button></div></div><label class="field">Nota de la categoría (opcional)<input data-cn="'+si+'-'+ci+'" value="'+esc(c.note||"")+'"></label>';
       c.items.forEach((it,ii)=>{
         const id=si+"-"+ci+"-"+ii;
         h+='<div class="prow'+(it.x?' off':'')+'"><input id="n-'+id+'" data-f="n" data-i="'+id+'" value="'+esc(it.n)+'" aria-label="Nombre">';
@@ -361,6 +362,7 @@ document.addEventListener("click",async e=>{
   if(t.id==="p-save"){publish();return}
   const act=t.dataset.act,id=t.dataset.i;
   if(act==="top"||act==="up"||act==="down"){const r=at(id),a=r.cat.items,i=r.i,j=act==="top"?0:act==="up"?i-1:i+1;if(j<0||j>=a.length||j===i)return;const [it]=a.splice(i,1);a.splice(j,0,it);delArm=null;mark();drawPanel();return}
+  if(act==="ctop"||act==="cup"||act==="cdown"){const [a,i]=id.split("-").map(Number),arr=E.sections[a].cats,j=act==="ctop"?0:act==="cup"?i-1:i+1;if(j<0||j>=arr.length||j===i)return;const [c]=arr.splice(i,1);arr.splice(j,0,c);delArm=null;mark();drawPanel();return}
   if(act==="top1"){const r=at(id);if(r.it.top)delete r.it.top;else r.it.top=true;E.topDate=new Date().toISOString().slice(0,10);mark();drawPanel();return}
   if(act==="hide"){const r=at(id);if(r.it.x)delete r.it.x;else r.it.x=true;mark();drawPanel();return}
   if(act==="del"){if(delArm!==id){delArm=id;drawPanel();return}const r=at(id);r.cat.items.splice(r.i,1);delArm=null;mark();drawPanel();return}
