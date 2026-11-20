@@ -135,6 +135,10 @@ footer p{margin:0;font-size:13.5px;opacity:.72}
 .qrbox img{width:200px;max-width:100%;aspect-ratio:1;background:#fff}
 .qrbox .acts{display:flex;flex-direction:column;gap:8px;min-width:0}
 .qrbox code{word-break:break-all;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 6px}.kpis div{background:var(--chip);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;gap:2px}.kpis b{font-size:26px;font-weight:500;font-variant-numeric:tabular-nums}.kpis span{font-size:12px;color:var(--soft)}
+.sub{margin:18px 0 8px;font-size:11px;color:var(--soft)}
+.chart{display:flex;align-items:flex-end;gap:4px;height:130px}.chart .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}.chart i{display:block;width:100%;background:var(--bronze);border-radius:4px 4px 0 0;min-height:2px}.chart b{font-size:10px;font-weight:500}.chart span{font-size:10px;color:var(--soft);margin-top:3px}
+.bar-r{display:grid;grid-template-columns:96px 1fr 34px;align-items:center;gap:8px;margin:6px 0;font-size:13.5px}.bar-r i{display:block;height:10px;border-radius:5px;background:var(--bronze)}.bar-r b{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
 .duo{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}.duo b{font-size:20px}
 .field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;font-size:13px;color:var(--soft)}
 .field input{background:var(--bg);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;color:var(--ink)}
@@ -421,23 +425,47 @@ function drawLogin(){
 async function loadStats(){
   if(!sb||!session)return;
   const since=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
-  const {data,error}=await sb.from("visits").select("day,device,source").gte("day",since).limit(10000);
+  const {data,error}=await sb.from("visits").select("day,device,source,created_at").gte("day",since).order("created_at",{ascending:false}).limit(20000);
   if(error){statsHtml="No pude cargar las visitas.";}
   else{
-    const porDia={},porTipo={},unicos=new Set();let qr=0,ln=0;
-    data.forEach(v=>{if(v.source==='qr')qr++;else ln++;porDia[v.day]=(porDia[v.day]||0)+1;const t=v.device.split("|")[0];porTipo[t]=(porTipo[t]||0)+1;unicos.add(v.device)});
-    const filas=Object.keys(porDia).sort().reverse().slice(0,14).map(d=>'<li>'+d+': <b>'+porDia[d]+'</b></li>').join("")||'<li>Sin visitas aún</li>';
-    statsHtml='<h3>Visitas (últimos 30 días)</h3><div class="duo"><span>Por QR: <b>'+qr+'</b></span><span>Por link: <b>'+ln+'</b></span></div><p>Total: <b>'+data.length+'</b> · Dispositivos: <b>'+unicos.size+'</b> · Móvil: '+(porTipo.movil||0)+' · Escritorio: '+(porTipo.escritorio||0)+'</p><ul class="stats">'+filas+'</ul>';
+    const hoy=new Date().toLocaleDateString("en-CA",{timeZone:"America/Caracas"});
+    const dia=n=>new Date(Date.now()-n*864e5).toLocaleDateString("en-CA",{timeZone:"America/Caracas"});
+    const pid=v=>v.device.split("|")[1]||v.device;
+    const per=(rows)=>new Set(rows.map(pid)).size;
+    const d7=dia(6);
+    const rHoy=data.filter(v=>v.day===hoy),r7=data.filter(v=>v.day>=d7);
+    const DEV={iphone:"iPhone",android:"Android",escritorio:"Computadora",movil:"Teléfono"};
+    const SRC={qr:"QR",instagram:"Instagram",facebook:"Facebook",whatsapp:"WhatsApp",google:"Google",link:"Link directo"};
+    const cuenta=(rows,f)=>{const m={};const seen={};rows.forEach(v=>{const k=f(v),p=pid(v);seen[k]=seen[k]||new Set();seen[k].add(p)});Object.keys(seen).forEach(k=>m[k]=seen[k].size);return Object.entries(m).sort((x,y)=>y[1]-x[1])};
+    const barras=(list,total,names)=>list.map(([k,n])=>'<div class="bar-r"><span>'+esc(names[k]||k)+'</span><i style="width:'+Math.max(4,Math.round(n/Math.max(1,total)*100))+'%"></i><b>'+n+'</b></div>').join("")||'<p class="status">Sin datos aún</p>';
+    const t30=per(data);
+    const dias=[];for(let i=13;i>=0;i--){const d=dia(i);dias.push([d,per(data.filter(v=>v.day===d))])}
+    const mx=Math.max(1,...dias.map(x=>x[1]));
+    const graf='<div class="chart">'+dias.map(([d,n])=>'<div class="col" title="'+d+': '+n+'"><b>'+(n||"")+'</b><i style="height:'+Math.round(n/mx*100)+'%"></i><span>'+d.slice(8)+'</span></div>').join("")+'</div>';
+    const horas=new Array(24).fill(0);data.forEach(v=>{if(v.created_at){const h=+new Date(v.created_at).toLocaleString("en-US",{timeZone:"America/Caracas",hour:"numeric",hour12:false})%24;horas[h]++}});
+    const top=horas.map((n,h)=>[h,n]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([h])=>{const f=x=>(x%12||12)+(x<12?" am":" pm");return f(h)+" a "+f((h+1)%24)});
+    statsHtml='<h3>Visitas</h3><div class="kpis"><div><b>'+per(rHoy)+'</b><span>personas hoy</span></div><div><b>'+per(r7)+'</b><span>últimos 7 días</span></div><div><b>'+t30+'</b><span>últimos 30 días</span></div></div>'+
+      '<h4 class="caps sub">Personas por día (últimas 2 semanas)</h4>'+graf+
+      '<h4 class="caps sub">De dónde vienen (30 días)</h4>'+barras(cuenta(data,v=>v.source||"link"),t30,SRC)+
+      '<h4 class="caps sub">Dispositivo (30 días)</h4>'+barras(cuenta(data,v=>v.device.split("|")[0]),t30,DEV)+
+      (top.length?'<h4 class="caps sub">Horas con más visitas</h4><p class="status">'+top.join(" · ")+'</p>':'')+
+      '<p class="status" style="margin-top:10px">Si una persona entra varias veces, cuenta una sola vez. WhatsApp casi nunca avisa de dónde viene el cliente, así que esas visitas suelen salir como Link directo.</p>';
   }
   const el=document.getElementById("stats");if(el)el.innerHTML=statsHtml;
 }
 async function logVisit(){
+  try{const {data}=await sb.auth.getSession();if(data&&data.session)return}catch(e){}
   let id="";
   try{id=localStorage.getItem("dev212")||"";if(!id){id=Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem("dev212",id)}}catch(e){}
-  if(sessionStorage.getItem("visita212"))return;
-  sessionStorage.setItem("visita212","1");
-  const tipo=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?"movil":"escritorio";
-  const r=await sb.from("visits").insert({device:tipo+"|"+id,source:ORIGEN});
+  try{if(sessionStorage.getItem("visita212"))return;sessionStorage.setItem("visita212","1")}catch(e){}
+  const ua=navigator.userAgent,ref=(document.referrer||"").toLowerCase();
+  const tipo=/iPhone|iPad|iPod/i.test(ua)?"iphone":/Android/i.test(ua)?"android":/Mobi/i.test(ua)?"movil":"escritorio";
+  let src=ORIGEN==="qr"?"qr":
+    (/Instagram/i.test(ua)||ref.includes("instagram."))?"instagram":
+    (/FBAN|FBAV|FB_IAB/i.test(ua)||ref.includes("facebook."))?"facebook":
+    (/WhatsApp/i.test(ua)||ref.includes("whatsapp."))?"whatsapp":
+    ref.includes("google.")?"google":"link";
+  const r=await sb.from("visits").insert({device:tipo+"|"+id,source:src});
   if(r.error)await sb.from("visits").insert({device:tipo+"|"+id});
 }
 
