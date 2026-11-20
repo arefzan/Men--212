@@ -285,8 +285,10 @@ window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h===
 const SB_URL="https://citiogjptygknzmmdhxv.supabase.co";
 const SB_KEY="sb_publishable_MJDUnD8UNhheEWoM74wEgQ_DhthKd9z";
 let sb=null,session=null,statsHtml="Cargando visitas…",upKey=null;
-const MENU_URL="https://menu212lecheria.vercel.app";
-const QR_URL=MENU_URL+"/?o=qr";
+const OLD_URL="https://menu212lecheria.vercel.app";
+const OLD_QR=OLD_URL+"/?o=qr";
+const cleanUrl=u=>{u=String(u||"").trim().replace(/\/+$/,"");if(!u)return "";if(!/^https?:\/\//i.test(u))u="https://"+u;return u.toLowerCase()};
+const siteUrl=d=>cleanUrl(d&&d.siteUrl)||OLD_URL;
 const ORIGEN=(new URLSearchParams(location.search).get("o")==="qr")?"qr":"link";
 if(location.search){try{history.replaceState(null,"",location.pathname+location.hash)}catch(e){}}
 const FOTOS=[["mesa","Portada"],["logo","Logo"],["plato","Comida"],["sushi","Sushi"],["bar","Bebidas"],["cafe","Postres y café"]];
@@ -302,7 +304,7 @@ function drawPanel(status,cls){
   const open=new Set([...document.querySelectorAll("details.sec[open]")].map(d=>d.dataset.s));
   const y=$(".panel")?.scrollTop||0;
   let h='<div class="panel" role="dialog" aria-label="Panel"><div class="p-head"><div class="wrap"><h2>Panel 212</h2><button class="sm" id="p-close">Cerrar</button><button class="sm" id="p-out">Salir</button><button class="save" id="p-save"'+(dirty&&!saving?'':' disabled')+'>'+(saving?'Publicando…':'Guardar y publicar')+'</button><div class="status '+(cls||"")+'">'+esc(status||(dirty?"Tienes cambios sin publicar.":"Edita precios, nombres y descripciones. Los clientes ven los cambios al publicar."))+'</div></div></div><div class="wrap p-body">';
-  h+='<div class="card"><h3>QR y link para clientes</h3><div class="qrbox"><img id="qrc" alt="QR del menú"><div class="acts"><span class="status">Este QR es fijo, no cambia nunca. Descárgalo y pégalo donde quieras.</span><button class="save" id="qr-dl">Descargar QR</button><span class="status">Link para enviar por WhatsApp o Instagram:</span><code>'+MENU_URL+'</code><button class="sm" id="qr-cp">Copiar link</button></div></div></div>';
+  {const su=siteUrl(E);h+='<div class="card"><h3>QR y link para clientes</h3><label class="field">Dirección del menú (tu dominio)<input id="e-site" value="'+esc(E.siteUrl||"")+'" placeholder="menu.212lecheria.com.ve" inputmode="url" autocapitalize="off"></label><p class="status">Los QR que ya imprimiste llevan a esta dirección automáticamente. Si la cambias, guarda y publica.</p><div class="qrbox"><img id="qrc" alt="QR del menú"><div class="acts"><span class="status">QR de '+esc(su.replace(/^https?:\/\//,""))+'. Descárgalo para tus próximas impresiones.</span><button class="save" id="qr-dl">Descargar QR</button>'+(su!==OLD_URL?'<button class="sm" id="qr-old">Descargar QR viejo (el ya impreso)</button>':'')+'<span class="status">Link para enviar por WhatsApp o Instagram:</span><code>'+esc(su)+'</code><button class="sm" id="qr-cp">Copiar link</button></div></div></div>'}
   {const n=E.sections.reduce((a,x)=>a+x.cats.reduce((b,c)=>b+c.items.filter(i=>i.top).length,0),0);const old=E.topDate&&(Date.now()-new Date(E.topDate))>7*864e5;
    h+='<div class="card"><h3>Más vendidos de la semana</h3><p class="status">'+(n?n+' platos marcados'+(E.topDate?' · actualizado el '+E.topDate.split('-').reverse().join('/'):''):'Ningún plato marcado. Toca ☆ Más vendido en los platos que más vendiste esta semana.')+'</p>'+(old?'<p class="status err">Ya pasó una semana. Revisa la caja y actualiza los más vendidos.</p>':'')+'</div>'}
   h+='<div class="card" id="stats">'+statsHtml+'</div>';
@@ -334,6 +336,7 @@ document.addEventListener("input",e=>{
   if(el.id==="e-wa"){E.wa=el.value.replace(/\D/g,"");mark();return}
   if(el.id==="e-ig"){E.ig=el.value.replace(/^@/,"").trim();mark();return}
   if(el.id==="e-note"){E.note=el.value;mark();return}
+  if(el.id==="e-site"){const v=el.value.trim();if(v)E.siteUrl=v;else delete E.siteUrl;mark();return}
   if(el.dataset.cn){const [a,b]=el.dataset.cn.split("-").map(Number);const c=E.sections[a].cats[b];if(el.value.trim())c.note=el.value;else delete c.note;mark();return}
   if(!el.dataset.f)return;const r=at(el.dataset.i);
   if(el.dataset.f==="n")r.it.n=el.value;
@@ -354,10 +357,11 @@ document.addEventListener("click",async e=>{
   canEdit=true;const a=$("#adm");if(a)a.hidden=false;openPanel();
 });
 document.addEventListener("click",async e=>{
-  if(!E)return;const t=e.target.closest("#p-close,#p-out,#qr-dl,#qr-cp,#p-save,[data-act]");if(!t)return;
+  if(!E)return;const t=e.target.closest("#p-close,#p-out,#qr-dl,#qr-old,#qr-cp,#p-save,[data-act]");if(!t)return;
   if(t.id==="p-close"){closePanel();return}
   if(t.id==="qr-dl"){downloadQR();return}
-  if(t.id==="qr-cp"){try{await navigator.clipboard.writeText(MENU_URL);t.textContent="Copiado"}catch(_){t.textContent=MENU_URL}return}
+  if(t.id==="qr-old"){downloadQR(true);return}
+  if(t.id==="qr-cp"){const u=siteUrl(E);try{await navigator.clipboard.writeText(u);t.textContent="Copiado"}catch(_){t.textContent=u}return}
   if(t.id==="p-out"){await sb.auth.signOut();session=null;canEdit=false;const a=$("#adm");if(a)a.hidden=true;closePanel();return}
   if(t.id==="p-save"){publish();return}
   const act=t.dataset.act,id=t.dataset.i;
@@ -389,19 +393,19 @@ async function isAdmin(){
   const {data}=await sb.from("admins").select("id").eq("id",session.user.id).maybeSingle();
   return !!data;
 }
-function makeQR(W){
+function makeQR(W,url){
   if(!window.qrcode)return null;
-  const q=qrcode(0,"M");q.addData(QR_URL);q.make();
+  const q=qrcode(0,"M");q.addData(url);q.make();
   const n=q.getModuleCount(),m=4,s=Math.max(1,Math.floor(W/(n+m*2))),size=(n+m*2)*s;
   const c=document.createElement("canvas");c.width=c.height=size;const x=c.getContext("2d");
   x.fillStyle="#fff";x.fillRect(0,0,size,size);x.fillStyle="#000";
   for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect((k+m)*s,(r+m)*s,s,s);
   return c;
 }
-function drawQR(){const box=document.getElementById("qrc");const c=makeQR(600);if(box&&c)box.src=c.toDataURL("image/png")}
-function downloadQR(){
-  const c=makeQR(2000);if(!c)return;
-  const a=document.createElement("a");a.download="QR-menu-212.png";a.href=c.toDataURL("image/png");document.body.appendChild(a);a.click();a.remove();
+function drawQR(){const box=document.getElementById("qrc");const c=makeQR(600,siteUrl(E)+"/?o=qr");if(box&&c)box.src=c.toDataURL("image/png")}
+function downloadQR(old){
+  const c=makeQR(2000,old?OLD_QR:siteUrl(E)+"/?o=qr");if(!c)return;
+  const a=document.createElement("a");a.download=old?"QR-menu-212-viejo.png":"QR-menu-212.png";a.href=c.toDataURL("image/png");document.body.appendChild(a);a.click();a.remove();
 }
 async function publish(){
   if(!sb||!session){drawPanel("Inicia sesión para guardar.","err");return}
@@ -445,6 +449,7 @@ shell();render();
   sb=window.supabase.createClient(SB_URL,SB_KEY);
   try{
     const {data}=await sb.from("menu_state").select("data").eq("id",1).maybeSingle();
+    if(data&&data.data&&data.data.siteUrl){const to=cleanUrl(data.data.siteUrl);try{const h=new URL(to).host;if(h&&h!==location.host&&/\.vercel\.app$/.test(location.hostname)){location.replace(to+(ORIGEN==="qr"?"/?o=qr":"/")+location.hash);return}}catch(e){}}
     if(data&&data.data&&data.data.sections&&data.data.sections.length){D=data.data;D.sections.forEach(x=>x.cats.forEach(c=>{if(c.note==="Elige 2 con tu plato o corte.")c.note="Elige 1 con tu plato o corte."}));shell();render()}
   }catch(e){}
   try{await logVisit()}catch(e){}
