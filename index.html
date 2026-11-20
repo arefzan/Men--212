@@ -285,7 +285,8 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("input",e=>{if(e.target.id==="q"){q=e.target.value;const pos=e.target.selectionStart;render();const i=$("#q");if(i){i.focus({preventScroll:true});try{i.setSelectionRange(pos,pos)}catch(_){}}}});
 window.addEventListener("scroll",()=>{cancelAnimationFrame(spy.r);spy.r=requestAnimationFrame(spy)},{passive:true});
-window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h==="panel"){openPanel();return}const s=hashSec();if(s&&s!==cur){cur=s;searching=false;render()}});
+function jumpEsp(){if(location.hash!=="#especiales")return;const si=D.sections.findIndex(x=>x.cats.some(c=>c.k==="esp212"));if(si<0)return;const ci=D.sections[si].cats.findIndex(c=>c.k==="esp212");if(cur!==D.sections[si].id){cur=D.sections[si].id;searching=false;render()}setTimeout(()=>{const el=document.getElementById(catId(si,ci));if(el)el.scrollIntoView({behavior:"auto"})},60)}
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h==="panel"){openPanel();return}if(h==="especiales"){jumpEsp();return}const s=hashSec();if(s&&s!==cur){cur=s;searching=false;render()}});
 
 /* ---------- Panel (solo para ti) ---------- */
 const SB_URL="https://citiogjptygknzmmdhxv.supabase.co";
@@ -473,14 +474,14 @@ async function logVisit(){
 
 
 
-shell();render();
+shell();render();jumpEsp();
 (async()=>{
   if(!window.supabase)return;
   sb=window.supabase.createClient(SB_URL,SB_KEY);
   try{
     const {data}=await sb.from("menu_state").select("data").eq("id",1).maybeSingle();
     if(data&&data.data&&data.data.siteUrl){const to=cleanUrl(data.data.siteUrl);try{const h=new URL(to).host;if(h&&h!==location.host&&/\.vercel\.app$/.test(location.hostname)){location.replace(to+(ORIGEN==="qr"?"/?o=qr":"/")+location.hash);return}}catch(e){}}
-    if(data&&data.data&&data.data.sections&&data.data.sections.length){D=data.data;seedEsp(D);D.sections.forEach(x=>x.cats.forEach(c=>{if(c.note==="Elige 2 con tu plato o corte.")c.note="Elige 1 con tu plato o corte."}));shell();render()}
+    if(data&&data.data&&data.data.sections&&data.data.sections.length){D=data.data;seedEsp(D);D.sections.forEach(x=>x.cats.forEach(c=>{if(c.note==="Elige 2 con tu plato o corte.")c.note="Elige 1 con tu plato o corte."}));shell();render();jumpEsp()}
   }catch(e){}
   try{await logVisit()}catch(e){}
   try{
